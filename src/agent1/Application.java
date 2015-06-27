@@ -20,31 +20,37 @@ public class Application
     System.out.println("Hello from agent1");
     System.out.println("The numbers are " + Arrays.toString(args));
     
-    boolean permanentFlag = Convert.parseUnsignedLong(args[0]) == 1L;
+    //boolean permanentFlag = Convert.parseUnsignedLong(args[0]) == 1L;
     Long daemonId = Convert.parseUnsignedLong(args[1]);
     
     JSONParser parser = new JSONParser();
     JSONObject params = null;
+    ///HACK: params come as json array inside quotes - not so easy to parse
     try
     {
-      JSONArray allParams = (JSONArray) parser.parse(args[2]);
+      System.out.println("json = " + args[2]);
+      String tmp = (String) parser.parse(args[2]);
+      JSONArray allParams = (JSONArray) parser.parse(tmp);
       params = (JSONObject) allParams.get(0);
+      System.out.println("parsed json = " + params.toString());
     }
     catch (ParseException e)
     {
       e.printStackTrace();
     }
     
+    ///HACK: do not forget to put daemonId + 1 in ()
     String bindAddress = "ipc://" + (daemonId + 1);
     String connectAddress = "ipc://" + (daemonId + 2);
     
     nanomsg.Socket x = new PairSocket();
+    ///TODO: set timeouts from plugin777
     //x.setSendTimeout(30000);
     //x.setRecvTimeout(30000);
-    //x.bind("tcp://127.0.0.1:5696");
-    x.bind(bindAddress);
-    x.connect(connectAddress);
-    //System.out.println("Pair socket created " + x.getNativeSocket());
+    x.bind(bindAddress + ".pair");
+    x.connect(connectAddress + ".pair");
+    
+    System.out.println("connected to " + connectAddress);
     
     JSONObject registerJson = new JSONObject();
     
@@ -72,6 +78,7 @@ public class Application
     registerJson.put("sleepmillis", 0);
     registerJson.put("allowremote", 1);
     registerJson.put("permanentflag", 1);
+    ///TODO: random number
     registerJson.put("myid", "12463223069612204128");
     registerJson.put("plugin", "run.sh");
     //registerJson.put("endpoint", bindAddress);
@@ -89,15 +96,14 @@ public class Application
     byte[] bytes = result.getBytes(encoding);
     byte[] addBytes = new byte[bytes.length + 1];
     System.arraycopy(bytes, 0, addBytes, 0, bytes.length);
-    addBytes[bytes.length] = 0;
-    //x.send(addBytes, true);
+    x.send(addBytes, true);
     System.out.println("send ok");
     
     ///TODO: numsent++
     
     while(true)
     {
-      String message = /*x.recvString()*/"";
+      String message = x.recvString();
       System.out.println("recv: " + message);
       ///TODO: numrecv++
       try
@@ -109,17 +115,5 @@ public class Application
         break;
       }
     }
-    
-    /*PrintWriter writer;
-    try
-    {
-      writer = new PrintWriter("agent1.txt", "UTF-8");
-      writer.println("Hello from agent1");
-      writer.close();
-    }
-    catch (FileNotFoundException | UnsupportedEncodingException e)
-    {
-      e.printStackTrace();
-    }*/
   }
 }
