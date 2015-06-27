@@ -1,0 +1,13 @@
+SuperNET install {"path":"/home/andrew/dev/agent1/run.sh", "daemonize":1}
+./BitcoinDarkd SuperNET '{"plugin":"SuperNET","method":"install","path":"/home/andrew/dev/agent1/run.sh","daemonize":1}'
+
+args:
+
+[1, 181792019401135, "{\"plugin\":\"SuperNET\",\"method\":\"install\",\"path\":\"/home/andrew/dev/agent1/run.sh\",\"daemonize\":1,\"tag\":\"6956263874670024516\",\"NXT\":\"17350609929303605969\"}"]
+
+echodemo:
+
+SuperNET install {"path":"plugins/agents/echodemo","daemonize":1}
+
+HOST: process_plugin_message.({"methods":["echo"],"pubmethods":["echo"],"authmethods":["echo"],"pluginrequest":"SuperNET","requestType":"register","sleepmillis":0,"NXT":"","allowremote":1,"permanentflag":1,"myid":"12463223069612204127","plugin":"echodemo","endpoint":"ipc://19487218452721","millis":19488453.00,"sent":0,"recv":0}) instanceid.12463223069612204127 allowremote.1
+
