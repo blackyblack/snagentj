@@ -86,12 +86,15 @@ public class Application
     registerJson.put("sent", 0);
     registerJson.put("recv", 0);
     
+    ///HACK: json library escapes forward slashes in ipc://
+    ///      This is an override...
     String result = registerJson.toString();
     int where = result.length();
     result = result.substring(0, where - 1);
     result += ",\"endpoint\":\"" + bindAddress + "\"}";
     System.out.println("send: " + result);
     
+    ///HACK: SuperNet expects trailing zero byte. Append it here.
     final Charset encoding = Charset.forName("ASCII");
     byte[] bytes = result.getBytes(encoding);
     byte[] addBytes = new byte[bytes.length + 1];
