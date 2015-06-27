@@ -1,4 +1,4 @@
-package agent1;
+package snagentj;
 
 import java.nio.charset.Charset;
 import java.util.Arrays;
