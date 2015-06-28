@@ -1,5 +1,5 @@
-SuperNET install {"path":"/home/andrew/dev/agent1/run.sh", "daemonize":1}
-./BitcoinDarkd SuperNET '{"plugin":"SuperNET","method":"install","path":"/home/andrew/dev/agent1/run.sh","daemonize":1}'
+SuperNET install {"path":"/home/andrew/dev/snagentj/snagentj", "daemonize":1}
+./BitcoinDarkd SuperNET '{"plugin":"SuperNET","method":"install","path":"/home/andrew/dev/snagentj/snagentj","daemonize":1}'
 
 args:
 
