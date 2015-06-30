@@ -269,4 +269,11 @@ public final class Convert {
         return Math.abs(a);
     }
 
+    public static long bytesToLong(byte[] bytes) {
+      ByteBuffer buffer = ByteBuffer.allocate(Long.SIZE / 8);
+      buffer.put(bytes);
+      buffer.flip();//need flip 
+      return buffer.getLong();
+    }
+
 }

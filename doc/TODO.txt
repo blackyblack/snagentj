@@ -1,6 +1,3 @@
-- make generic receive loop
-- complete registration of the agent
 - try to call a method of the agent
-- make a repo
 - make doc
 - make a generic java library

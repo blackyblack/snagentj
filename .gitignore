@@ -3,3 +3,4 @@ lib/*.jar
 .project
 .settings
 bin/
+*.pair

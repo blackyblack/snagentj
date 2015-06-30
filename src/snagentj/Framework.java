@@ -11,6 +11,8 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+import snagentj.ProcessUtils;
+
 public class Framework
 {
   public static PrintStream logger;
@@ -44,14 +46,13 @@ public class Framework
   
   @SuppressWarnings("unchecked")
   public static void mainLoop(String[] args)
-  {    
+  {
     try
     {
       info.permanentflag = Convert.parseUnsignedLong(args[0]) == 1L;
       info.daemonid = Convert.parseUnsignedLong(args[1]);
-      ///TODO: get process id
-      info.ppid = 0L;
-      info.name = agent.name;
+      info.ppid = (long) ProcessUtils.OsGetPid();
+      info.name = agent.getName();
       info.numsent = 0L;
       info.numrecv = 0L;
       
@@ -74,7 +75,12 @@ public class Framework
       }
       ///TODO: create info.nxtaddr
 
+      System.out.println("Parent PID is " + info.ppid);
+
+      byte[] randomBytes = ProcessUtils.RandomBytes(8);
+
       agent.register(info, params);
+      agent.processRegister(info, params);
       
       ///HACK: do not forget to put daemonId + 1 in ()
       info.bindaddr = "ipc://" + (info.daemonid + 1);
@@ -93,7 +99,7 @@ public class Framework
       {
         info.timeout = (long) params.get("timeout");
       }
-  
+      
       comm = new PairSocket();
       if(info.timeout > 0)
       {
@@ -111,19 +117,19 @@ public class Framework
       JSONObject registerJson = new JSONObject();
       
       JSONArray methodsJson = new JSONArray();
-      for(String a : agent.methods)
+      for(String a : agent.getMethods())
       {
         methodsJson.add(a);
       }
       registerJson.put("methods", methodsJson);
       JSONArray pubmethodsJson = new JSONArray();
-      for(String a : agent.pubmethods)
+      for(String a : agent.getPubmethods())
       {
         pubmethodsJson.add(a);
       }
       registerJson.put("pubmethods", pubmethodsJson);
       JSONArray authmethodsJson = new JSONArray();
-      for(String a : agent.authmethods)
+      for(String a : agent.getAuthmethods())
       {
         authmethodsJson.add(a);
       }
@@ -142,8 +148,7 @@ public class Framework
       registerJson.put("sleepmillis", info.sleepmillis);
       registerJson.put("allowremote", info.allowremote? 1: 0);
       registerJson.put("permanentflag", info.permanentflag? 1:0);
-      ///TODO: random number
-      registerJson.put("myid", "12463223069612204128");
+      registerJson.put("myid", Convert.bytesToLong(randomBytes));
       registerJson.put("plugin", info.name);
       registerJson.put("endpoint", info.bindaddr);
       registerJson.put("millis", 100.0);
@@ -177,7 +182,31 @@ public class Framework
             message = message.substring(0, message.length() - 1);
           }
           
-          request = (JSONObject) parser.parse(message);
+          JSONArray itemsArray = null;
+          try
+          {
+            itemsArray = (JSONArray) parser.parse(message);
+          }
+          catch(ParseException e)
+          {
+          }
+          catch(ClassCastException e)
+          {
+          }
+          
+          if(itemsArray != null)
+          {
+            request = (JSONObject) itemsArray.get(0);
+            ///TODO: some validate code...
+            //timestamp = (uint32_t)get_API_int(cJSON_GetObjectItem(obj,"time"),0);
+            //sender[0] = 0;
+            //valid = validate_token(forwarder,pubkey,sender,jsonstr,(timestamp != 0)*MAXTIMEDIFF);
+          }
+          else
+          {
+            request = (JSONObject) parser.parse(message);
+          }
+          
           if(request == null)
           {
             logger.println("request (" + message + ") not parsed");

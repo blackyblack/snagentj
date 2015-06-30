@@ -2,16 +2,21 @@ package snagentj;
 
 import org.json.simple.JSONObject;
 
-public class AgentInterface
+public abstract class AgentInterface
 {
   //name of the agent. Must be equal to executable name.
-  public String name = "";
+  private String name = "";
   //list of supported methods approved for local access
-  public String[] methods = new String[0];
+  private String[] methods = new String[0];
   //list of supported methods approved for public (Internet) access
-  public String[] pubmethods = new String[0];
+  private String[] pubmethods = new String[0];
   //list of supported methods that require authentication
-  public String[] authmethods = new String[0];
+  private String[] authmethods = new String[0];
+  
+  public String getName() { return name; }
+  public String[] getMethods() { return methods; }
+  public String[] getPubmethods() { return pubmethods; }
+  public String[] getAuthmethods() { return authmethods; }
   
   //return disabled flags here
   public long register(AgentInfo info, JSONObject args)
