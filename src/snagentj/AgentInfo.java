@@ -1,18 +1,7 @@
 package snagentj;
 
 public class AgentInfo
-{
-  /*struct plugin_info
-  {
-      char bindaddr[64],connectaddr[64],ipaddr[64],name[64],NXTADDR[64];
-      uint64_t daemonid,myid,nxt64bits;
-      union endpoints all;
-      uint32_t permanentflag,ppid,transportid,extrasize,timeout,numrecv,numsent,bundledflag,registered,sleepmillis,allowremote;
-      uint16_t port;
-      portable_mutex_t mutex;
-      uint8_t pluginspace[];
-  };*/
-  
+{  
   public String bindaddr;
   public String connectaddr;
   public String ipaddr;

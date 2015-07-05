@@ -7,7 +7,8 @@ import com.sun.jna.Pointer;
 
 public class ProcessUtils {
     public interface NativeProcUtils extends Library {
-      public int OS_getpid();
+      public int OS_getppid();
+      public int OS_pingpid(int pid);
       public void randombytes(Pointer x,int xlen);
     }
 
@@ -17,8 +18,12 @@ public class ProcessUtils {
       procutils = (NativeProcUtils) Native.loadLibrary("procutils", NativeProcUtils.class);
     }
 
-    public static int OsGetPid () {
-      return procutils.OS_getpid();
+    public static int OsGetPpid () {
+      return procutils.OS_getppid();
+    }
+    
+    public static int OsPingPid (int pid) {
+      return procutils.OS_pingpid(pid);
     }
 
     public static byte[] RandomBytes (int size) {

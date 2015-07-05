@@ -3,7 +3,9 @@ package snagentj;
 import java.io.PrintStream;
 import java.nio.charset.Charset;
 
-import nanomsg.pair.PairSocket;
+import nanomsg.bus.BusSocket;
+import nanomsg.exceptions.IOException;
+import nanomsg.pipeline.PushSocket;
 import nrs.util.Convert;
 
 import org.json.simple.JSONArray;
@@ -11,12 +13,11 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
-import snagentj.ProcessUtils;
-
 public class Framework
 {
   public static PrintStream logger;
-  public static nanomsg.Socket comm;
+  public static nanomsg.Socket snetsock;
+  public static nanomsg.Socket agentsock;
   //all agent parameters
   public static AgentInfo info = new AgentInfo();
   
@@ -31,7 +32,7 @@ public class Framework
     byte[] bytes = data.getBytes(encoding);
     byte[] addBytes = new byte[bytes.length + 1];
     System.arraycopy(bytes, 0, addBytes, 0, bytes.length);
-    comm.send(addBytes, true);
+    snetsock.send(addBytes, true);
     info.numsent++;
   }
   
@@ -51,7 +52,7 @@ public class Framework
     {
       info.permanentflag = Convert.parseUnsignedLong(args[0]) == 1L;
       info.daemonid = Convert.parseUnsignedLong(args[1]);
-      info.ppid = (long) ProcessUtils.OsGetPid();
+      info.ppid = (long) Convert.parseUnsignedLong(args[3]);
       info.name = agent.getName();
       info.numsent = 0L;
       info.numrecv = 0L;
@@ -60,8 +61,8 @@ public class Framework
       
       ///HACK: params come as json array inside quotes - not so easy to parse
       String tmp = (String) parser.parse(args[2]);
-      JSONArray allParams = (JSONArray) parser.parse(tmp);
-      JSONObject params = (JSONObject) allParams.get(0);
+      //JSONArray allParams = (JSONArray) parser.parse(args[2]);
+      JSONObject params = (JSONObject) parser.parse(tmp);
       
       String nxtbits = Convert.emptyToNull((String) params.get("NXT"));
       if(nxtbits != null)
@@ -79,20 +80,16 @@ public class Framework
 
       byte[] randomBytes = ProcessUtils.RandomBytes(8);
 
-      agent.register(info, params);
-      agent.processRegister(info, params);
-      
-      ///HACK: do not forget to put daemonId + 1 in ()
-      info.bindaddr = "ipc://" + (info.daemonid + 1);
-      info.connectaddr = "ipc://" + (info.daemonid + 2);
-      if(info.permanentflag)
+      info.connectaddr = "ipc://SuperNET";
+      info.bindaddr = "ipc://" + info.daemonid;
+      /*if(info.permanentflag)
       {
         ///TODO: make port detection
         if(info.ipaddr != null && info.port != 0)
         {
           info.bindaddr = "tcp://" + info.ipaddr + ":" + (info.port + 1);
         }
-      }
+      }*/
       
       info.timeout = 0L;
       if(params.containsKey("timeout"))
@@ -100,19 +97,25 @@ public class Framework
         info.timeout = (long) params.get("timeout");
       }
       
-      comm = new PairSocket();
-      if(info.timeout > 0)
+      snetsock = new PushSocket();
+      /*if(info.timeout > 0)
       {
         logger.println("nanomsg timeout set to " + info.timeout);
         
-        comm.setSendTimeout(info.timeout.intValue());
-        comm.setRecvTimeout(info.timeout.intValue());
-      }
+        snetsock.setSendTimeout(info.timeout.intValue());
+        snetsock.setRecvTimeout(info.timeout.intValue());
+      }*/
       
-      comm.bind(info.bindaddr + ".pair");
-      comm.connect(info.connectaddr + ".pair");
+      snetsock.connect(info.connectaddr);
+      
+      agentsock = new BusSocket();
+      agentsock.bind(info.bindaddr);
       
       logger.println("connected to " + info.connectaddr);
+      logger.println("listen on " + info.bindaddr);
+
+      agent.register(info, params);
+      agent.processRegister(info, params);
       
       JSONObject registerJson = new JSONObject();
       
@@ -143,23 +146,66 @@ public class Framework
         registerJson.put("NXT", params.get("NXT"));
       }*/ 
       
-      registerJson.put("NXT", "");
+      ///TODO: proper calculation
+      registerJson.put("NXT", "1844690345");
+      registerJson.put("serviceNXT", "18446744072072726485");
       //what is this?
-      registerJson.put("sleepmillis", info.sleepmillis);
+      registerJson.put("sleepmillis", /*info.sleepmillis*/100);
       registerJson.put("allowremote", info.allowremote? 1: 0);
       registerJson.put("permanentflag", info.permanentflag? 1:0);
-      registerJson.put("myid", Convert.bytesToLong(randomBytes));
+      registerJson.put("myid", Convert.toUnsignedLong(Convert.bytesToLong(randomBytes)));
       registerJson.put("plugin", info.name);
+      registerJson.put("daemonid", Convert.toUnsignedLong(info.daemonid));
       registerJson.put("endpoint", info.bindaddr);
       registerJson.put("millis", 100.0);
       registerJson.put("sent", info.numsent);
       registerJson.put("recv", info.numrecv);
       
+      /*String myreply = registerJson.toString();
+      myreply = myreply.substring(0, myreply.length() - 1);
+      myreply += (",\"endpoint\":\"" + info.bindaddr + "\"}");*/
+      
       reply(registerJson.toString());
       
       while(true)
       {
-        String message = comm.recvString();
+        //int recvfd = agentsock.getRcvFd();
+        //logger.println("recvfd: " + recvfd);
+        
+        byte[] received = new byte[0];
+        try
+        {
+          received = agentsock.recvBytes(false);
+        }
+        catch(IOException e)
+        {
+        }
+        
+        if(received.length == 0)
+        {
+          int parentalive = ProcessUtils.OsPingPid(info.ppid.intValue());
+          if(parentalive != 0)
+          {
+            logger.println("parentalive: " + parentalive);
+            break;
+          }
+
+          try
+          {
+            agent.idle(info);
+            ///TODO: use sleepmillis
+            Thread.sleep(10);
+          }
+          catch (InterruptedException e)
+          {
+            break;
+          }
+          continue;
+        }
+        logger.println("received " + received.length + " bytes");
+        final Charset encoding = Charset.forName("UTF-8");
+        String message = new String(received, encoding);
+        //String message = agentsock.recvString();
         logger.println("recv: " + message);
         info.numrecv++;
         
@@ -245,6 +291,8 @@ public class Framework
     }
     
     agent.shutdown(info, 0);
+    agentsock.close();
+    snetsock.close();
   }
   
   public static void main(String[] args)
