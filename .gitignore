@@ -4,3 +4,4 @@ lib/*.jar
 .settings
 bin/
 *.pair
+classes/
