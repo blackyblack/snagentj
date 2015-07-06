@@ -36,6 +36,23 @@ public class Framework
     info.numsent++;
   }
   
+  @SuppressWarnings("unchecked")
+  public static JSONObject addstdfields(JSONObject data)
+  {
+    data.put("allowremote", info.allowremote? 1: 0);
+    data.put("daemonid", Convert.toUnsignedLong(info.daemonid));
+    data.put("myid", Convert.toUnsignedLong(info.myid));
+    if(info.nxt64bits != 0)
+    {
+      data.put("NXT", Convert.toUnsignedLong(info.nxt64bits));
+    }
+    if(info.servicenxt64bits != 0)
+    {
+      data.put("serviceNXT", Convert.toUnsignedLong(info.servicenxt64bits));
+    }
+    return data;
+  }
+  
   public static void init(AgentInterface agent, String[] args, PrintStream logger)
   {
     Framework.logger = logger;
@@ -56,6 +73,8 @@ public class Framework
       info.name = agent.getName();
       info.numsent = 0L;
       info.numrecv = 0L;
+      info.nxt64bits = 0L;
+      info.servicenxt64bits = 0L;
       
       byte[] randomBytes = ProcessUtils.RandomBytes(8);
       info.myid = Convert.bytesToLong(randomBytes);
@@ -71,6 +90,11 @@ public class Framework
       if(nxtbits != null)
       {
         info.nxt64bits = Convert.parseUnsignedLong(nxtbits);
+      }
+      String servicenxtbits = Convert.emptyToNull((String) params.get("serviceNXT"));
+      if(servicenxtbits != null)
+      {
+        info.servicenxt64bits = Convert.parseUnsignedLong(servicenxtbits);
       }
       info.ipaddr = Convert.emptyToNull((String) params.get("ipaddr"));
       if(params.containsKey("port"))
@@ -98,9 +122,14 @@ public class Framework
         info.timeout = (long) params.get("timeout");
       }
       
+      //default supernet sleep
+      info.sleepmillis = 100L;
+      if(params.containsKey("sleepmillis"))
+      {
+        info.sleepmillis = (long) params.get("sleepmillis");
+      }
+      
       snetsock = new PushSocket();
-      snetsock.setSendTimeout(500);
-      snetsock.setRecvTimeout(500);
       /*if(info.timeout > 0)
       {
         logger.println("nanomsg timeout set to " + info.timeout);
@@ -112,8 +141,6 @@ public class Framework
       snetsock.connect(info.connectaddr);
       
       agentsock = new BusSocket();
-      agentsock.setSendTimeout(500);
-      agentsock.setRecvTimeout(500);
       agentsock.bind(info.bindaddr);
       
       logger.println("connected to " + info.connectaddr);
@@ -145,21 +172,15 @@ public class Framework
       registerJson.put("pluginrequest", "SuperNET");
       registerJson.put("requestType", "register");
       
-      //stdfields
-      registerJson.put("allowremote", info.allowremote? 1: 0);
-      registerJson.put("daemonid", Convert.toUnsignedLong(info.daemonid));
-      registerJson.put("myid", Convert.toUnsignedLong(info.myid));
-      
-      ///TODO: proper calculation
-      registerJson.put("NXT", "1844690345");
-      registerJson.put("serviceNXT", "18446744072072726485");
+      addstdfields(registerJson);
+
       //what is this?
-      registerJson.put("sleepmillis", /*info.sleepmillis*/100);
+      registerJson.put("sleepmillis", info.sleepmillis);
       registerJson.put("permanentflag", info.permanentflag? 1:0);
       registerJson.put("plugin", info.name);
       
       registerJson.put("endpoint", info.bindaddr);
-      registerJson.put("millis", 100.0);
+      registerJson.put("millis", System.currentTimeMillis());
       registerJson.put("sent", info.numsent);
       registerJson.put("recv", info.numrecv);
       
@@ -232,10 +253,7 @@ public class Framework
               logger.println("couldnt parse (" + message + ")");
               answer.put("result", "unparseable");
               answer.put("message", message);
-              //stdfields
-              answer.put("allowremote", info.allowremote? 1: 0);
-              answer.put("daemonid", Convert.toUnsignedLong(info.daemonid));
-              answer.put("myid", Convert.toUnsignedLong(info.myid));
+              addstdfields(answer);
               reply(answer.toString());
               continue;
             }
@@ -252,10 +270,7 @@ public class Framework
               {
                 answer.put("tag", tag);
               }
-              //stdfields
-              answer.put("allowremote", info.allowremote? 1: 0);
-              answer.put("daemonid", Convert.toUnsignedLong(info.daemonid));
-              answer.put("myid", Convert.toUnsignedLong(info.myid));
+              addstdfields(answer);
               reply(answer.toString());
               continue;
             }
@@ -264,10 +279,7 @@ public class Framework
             {
               answer.put("tag", tag);
             }
-            //stdfields
-            answer.put("allowremote", info.allowremote? 1: 0);
-            answer.put("daemonid", Convert.toUnsignedLong(info.daemonid));
-            answer.put("myid", Convert.toUnsignedLong(info.myid));
+            addstdfields(answer);
             reply(answer.toString());
           }
           catch (ParseException | ClassCastException e)
@@ -275,10 +287,7 @@ public class Framework
             logger.println("couldnt parse (" + message + ")");
             answer.put("result", "unparseable");
             answer.put("message", message);
-            //stdfields
-            answer.put("allowremote", info.allowremote? 1: 0);
-            answer.put("daemonid", Convert.toUnsignedLong(info.daemonid));
-            answer.put("myid", Convert.toUnsignedLong(info.myid));
+            addstdfields(answer);
             reply(answer.toString());
             continue;
           }
@@ -293,9 +302,10 @@ public class Framework
         
         try
         {
-          agent.idle(info);
-          ///TODO: use sleepmillis
-          Thread.sleep(100);
+          if(agent.idle(info) == 0)
+          {
+            Thread.sleep(info.sleepmillis);
+          }
         }
         catch (InterruptedException e)
         {

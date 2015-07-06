@@ -10,6 +10,7 @@ public class AgentInfo
   public Long daemonid;
   public Long myid;
   public Long nxt64bits;
+  public Long servicenxt64bits;
   public boolean permanentflag;
   public boolean allowremote;
   public boolean bundledflag; //unused
