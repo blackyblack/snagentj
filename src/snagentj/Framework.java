@@ -28,7 +28,7 @@ public class Framework
     logger.println("send: " + data);
     
     ///HACK: SuperNet expects trailing zero byte. Append it here.
-    final Charset encoding = Charset.forName("ASCII");
+    final Charset encoding = Charset.forName("UTF-8");
     byte[] bytes = data.getBytes(encoding);
     byte[] addBytes = new byte[bytes.length + 1];
     System.arraycopy(bytes, 0, addBytes, 0, bytes.length);
@@ -57,6 +57,9 @@ public class Framework
       info.numsent = 0L;
       info.numrecv = 0L;
       
+      byte[] randomBytes = ProcessUtils.RandomBytes(8);
+      info.myid = Convert.bytesToLong(randomBytes);
+      
       JSONParser parser = new JSONParser();
       
       ///HACK: params come as json array inside quotes - not so easy to parse
@@ -78,8 +81,6 @@ public class Framework
 
       System.out.println("Parent PID is " + info.ppid);
 
-      byte[] randomBytes = ProcessUtils.RandomBytes(8);
-
       info.connectaddr = "ipc://SuperNET";
       info.bindaddr = "ipc://" + info.daemonid;
       /*if(info.permanentflag)
@@ -98,6 +99,8 @@ public class Framework
       }
       
       snetsock = new PushSocket();
+      snetsock.setSendTimeout(500);
+      snetsock.setRecvTimeout(500);
       /*if(info.timeout > 0)
       {
         logger.println("nanomsg timeout set to " + info.timeout);
@@ -109,6 +112,8 @@ public class Framework
       snetsock.connect(info.connectaddr);
       
       agentsock = new BusSocket();
+      agentsock.setSendTimeout(500);
+      agentsock.setRecvTimeout(500);
       agentsock.bind(info.bindaddr);
       
       logger.println("connected to " + info.connectaddr);
@@ -140,144 +145,157 @@ public class Framework
       registerJson.put("pluginrequest", "SuperNET");
       registerJson.put("requestType", "register");
       
-      /*if(params != null)
-      {
-        registerJson.put("tag", params.get("tag"));
-        registerJson.put("NXT", params.get("NXT"));
-      }*/ 
+      //stdfields
+      registerJson.put("allowremote", info.allowremote? 1: 0);
+      registerJson.put("daemonid", Convert.toUnsignedLong(info.daemonid));
+      registerJson.put("myid", Convert.toUnsignedLong(info.myid));
       
       ///TODO: proper calculation
       registerJson.put("NXT", "1844690345");
       registerJson.put("serviceNXT", "18446744072072726485");
       //what is this?
       registerJson.put("sleepmillis", /*info.sleepmillis*/100);
-      registerJson.put("allowremote", info.allowremote? 1: 0);
       registerJson.put("permanentflag", info.permanentflag? 1:0);
-      registerJson.put("myid", Convert.toUnsignedLong(Convert.bytesToLong(randomBytes)));
       registerJson.put("plugin", info.name);
-      registerJson.put("daemonid", Convert.toUnsignedLong(info.daemonid));
+      
       registerJson.put("endpoint", info.bindaddr);
       registerJson.put("millis", 100.0);
       registerJson.put("sent", info.numsent);
       registerJson.put("recv", info.numrecv);
       
-      /*String myreply = registerJson.toString();
-      myreply = myreply.substring(0, myreply.length() - 1);
-      myreply += (",\"endpoint\":\"" + info.bindaddr + "\"}");*/
-      
       reply(registerJson.toString());
       
+      JSONObject answer = new JSONObject();
       while(true)
       {
-        //int recvfd = agentsock.getRcvFd();
-        //logger.println("recvfd: " + recvfd);
-        
-        byte[] received = new byte[0];
+        String message = null;
+        ///TODO: will it timeout on died socket?
         try
         {
-          received = agentsock.recvBytes(false);
+          message = agentsock.recvString(false);
         }
         catch(IOException e)
         {
         }
         
-        if(received.length == 0)
+        if(message != null && message.length() != 0)
         {
-          int parentalive = ProcessUtils.OsPingPid(info.ppid.intValue());
-          if(parentalive != 0)
-          {
-            logger.println("parentalive: " + parentalive);
-            break;
-          }
-
+          logger.println("recv: " + message);
+          info.numrecv++;
+          
+          JSONObject request = null;
+    
           try
           {
-            agent.idle(info);
-            ///TODO: use sleepmillis
-            Thread.sleep(10);
+            ///HACK: trailing bytes mess with parser
+            message.trim();
+            if(message.charAt(message.length() - 1) == 0)
+            {
+              message = message.substring(0, message.length() - 1);
+            }
+            if(message.charAt(message.length() - 1) == '\r')
+            {
+              message = message.substring(0, message.length() - 1);
+            }
+            if(message.charAt(message.length() - 1) == '\n')
+            {
+              message = message.substring(0, message.length() - 1);
+            }
+            
+            JSONArray itemsArray = null;
+            try
+            {
+              itemsArray = (JSONArray) parser.parse(message);
+            }
+            catch(ParseException e)
+            {
+            }
+            catch(ClassCastException e)
+            {
+            }
+            
+            if(itemsArray != null)
+            {
+              request = (JSONObject) itemsArray.get(0);
+              ///TODO: some validate code...
+              //timestamp = (uint32_t)get_API_int(cJSON_GetObjectItem(obj,"time"),0);
+              //sender[0] = 0;
+              //valid = validate_token(forwarder,pubkey,sender,jsonstr,(timestamp != 0)*MAXTIMEDIFF);
+            }
+            else
+            {
+              request = (JSONObject) parser.parse(message);
+            }
+            
+            if(request == null)
+            {
+              logger.println("couldnt parse (" + message + ")");
+              answer.put("result", "unparseable");
+              answer.put("message", message);
+              //stdfields
+              answer.put("allowremote", info.allowremote? 1: 0);
+              answer.put("daemonid", Convert.toUnsignedLong(info.daemonid));
+              answer.put("myid", Convert.toUnsignedLong(info.myid));
+              reply(answer.toString());
+              continue;
+            }
+            
+            String tag = Convert.emptyToNull((String)request.get("tag"));
+            
+            answer = agent.process(info, request);
+            if(answer == null)
+            {
+              logger.println("request (" + message + ") has no response");
+              answer = new JSONObject();
+              answer.put("result", "no response");
+              if(tag != null)
+              {
+                answer.put("tag", tag);
+              }
+              //stdfields
+              answer.put("allowremote", info.allowremote? 1: 0);
+              answer.put("daemonid", Convert.toUnsignedLong(info.daemonid));
+              answer.put("myid", Convert.toUnsignedLong(info.myid));
+              reply(answer.toString());
+              continue;
+            }
+            
+            if(tag != null)
+            {
+              answer.put("tag", tag);
+            }
+            //stdfields
+            answer.put("allowremote", info.allowremote? 1: 0);
+            answer.put("daemonid", Convert.toUnsignedLong(info.daemonid));
+            answer.put("myid", Convert.toUnsignedLong(info.myid));
+            reply(answer.toString());
           }
-          catch (InterruptedException e)
+          catch (ParseException | ClassCastException e)
           {
-            break;
+            logger.println("couldnt parse (" + message + ")");
+            answer.put("result", "unparseable");
+            answer.put("message", message);
+            //stdfields
+            answer.put("allowremote", info.allowremote? 1: 0);
+            answer.put("daemonid", Convert.toUnsignedLong(info.daemonid));
+            answer.put("myid", Convert.toUnsignedLong(info.myid));
+            reply(answer.toString());
+            continue;
           }
-          continue;
         }
-        logger.println("received " + received.length + " bytes");
-        final Charset encoding = Charset.forName("UTF-8");
-        String message = new String(received, encoding);
-        //String message = agentsock.recvString();
-        logger.println("recv: " + message);
-        info.numrecv++;
         
-        JSONObject request = null;
-  
-        try
+        int parentalive = ProcessUtils.OsPingPid(info.ppid.intValue());
+        if(parentalive != 0)
         {
-          ///HACK: trailing bytes mess with parser
-          message.trim();
-          if(message.charAt(message.length() - 1) == 0)
-          {
-            message = message.substring(0, message.length() - 1);
-          }
-          if(message.charAt(message.length() - 1) == '\r')
-          {
-            message = message.substring(0, message.length() - 1);
-          }
-          if(message.charAt(message.length() - 1) == '\n')
-          {
-            message = message.substring(0, message.length() - 1);
-          }
-          
-          JSONArray itemsArray = null;
-          try
-          {
-            itemsArray = (JSONArray) parser.parse(message);
-          }
-          catch(ParseException e)
-          {
-          }
-          catch(ClassCastException e)
-          {
-          }
-          
-          if(itemsArray != null)
-          {
-            request = (JSONObject) itemsArray.get(0);
-            ///TODO: some validate code...
-            //timestamp = (uint32_t)get_API_int(cJSON_GetObjectItem(obj,"time"),0);
-            //sender[0] = 0;
-            //valid = validate_token(forwarder,pubkey,sender,jsonstr,(timestamp != 0)*MAXTIMEDIFF);
-          }
-          else
-          {
-            request = (JSONObject) parser.parse(message);
-          }
-          
-          if(request == null)
-          {
-            logger.println("request (" + message + ") not parsed");
-            continue;
-          }
-          
-          JSONObject answer = agent.process(info, request);
-          if(answer == null)
-          {
-            logger.println("request (" + message + ") has no response");
-            continue;
-          }
-          
-          reply(answer.toString());
-        }
-        catch (ParseException e)
-        {
-          e.printStackTrace(logger);
+          logger.println("Parent " + info.ppid + " died. Terminating.");
+          break;
         }
         
         try
         {
           agent.idle(info);
           ///TODO: use sleepmillis
-          Thread.sleep(10);
+          Thread.sleep(100);
         }
         catch (InterruptedException e)
         {

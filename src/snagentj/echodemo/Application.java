@@ -40,16 +40,13 @@ public class Application
       if (errorStr != null || resultStr != null)
       {
         answer.put("result", "completed");
-        answer.put("allowremote", info.allowremote? 1:0);
-        answer.put("tag", "0");
-        answer.put("NXT", "");
         return answer;
       }
       
       String method = Convert.emptyToNull((String)data.get("method"));
       String methodResult = Convert.emptyToNull((String)data.get("result"));
       //plugin specific
-      String echoStr = Convert.emptyToNull((String)data.get("echo"));
+      String echoStr = Convert.emptyToNull((String)data.get("echostr"));
       
       if (method == null)
       {
@@ -61,13 +58,11 @@ public class Application
       {
         info.registered = true;
         answer.put("result", "activated");
-        answer.put("allowremote", info.allowremote? 1:0);
         return answer;
       }
       else if (method.equals("echo"))
       {
         answer.put("result", echoStr);
-        answer.put("allowremote", info.allowremote? 1:0);
         return answer;
       }
       
