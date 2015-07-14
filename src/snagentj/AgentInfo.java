@@ -6,11 +6,10 @@ public class AgentInfo
   public String connectaddr;
   public String ipaddr;
   public String name;
-  public String nxtaddr;
+  public Long nxtaddr;
+  public Long servicenxtaddr;
   public Long daemonid;
   public Long myid;
-  public Long nxt64bits;
-  public Long servicenxt64bits;
   public boolean permanentflag;
   public boolean allowremote;
   public boolean bundledflag; //unused

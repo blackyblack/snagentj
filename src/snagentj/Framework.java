@@ -42,13 +42,13 @@ public class Framework
     data.put("allowremote", info.allowremote? 1: 0);
     data.put("daemonid", Convert.toUnsignedLong(info.daemonid));
     data.put("myid", Convert.toUnsignedLong(info.myid));
-    if(info.nxt64bits != 0)
+    if(info.nxtaddr != 0)
     {
-      data.put("NXT", Convert.toUnsignedLong(info.nxt64bits));
+      data.put("NXT", Convert.toUnsignedLong(info.nxtaddr));
     }
-    if(info.servicenxt64bits != 0)
+    if(info.servicenxtaddr != 0)
     {
-      data.put("serviceNXT", Convert.toUnsignedLong(info.servicenxt64bits));
+      data.put("serviceNXT", Convert.toUnsignedLong(info.servicenxtaddr));
     }
     return data;
   }
@@ -73,8 +73,8 @@ public class Framework
       info.name = agent.getName();
       info.numsent = 0L;
       info.numrecv = 0L;
-      info.nxt64bits = 0L;
-      info.servicenxt64bits = 0L;
+      info.nxtaddr = 0L;
+      info.servicenxtaddr = 0L;
       
       byte[] randomBytes = ProcessUtils.RandomBytes(8);
       info.myid = Convert.bytesToLong(randomBytes);
@@ -89,19 +89,18 @@ public class Framework
       String nxtbits = Convert.emptyToNull((String) params.get("NXT"));
       if(nxtbits != null)
       {
-        info.nxt64bits = Convert.parseUnsignedLong(nxtbits);
+        info.nxtaddr = Convert.parseUnsignedLong(nxtbits);
       }
-      String servicenxtbits = Convert.emptyToNull((String) params.get("serviceNXT"));
-      if(servicenxtbits != null)
+      nxtbits = Convert.emptyToNull((String) params.get("serviceNXT"));
+      if(nxtbits != null)
       {
-        info.servicenxt64bits = Convert.parseUnsignedLong(servicenxtbits);
+        info.servicenxtaddr = Convert.parseUnsignedLong(nxtbits);
       }
       info.ipaddr = Convert.emptyToNull((String) params.get("ipaddr"));
       if(params.containsKey("port"))
       {
         info.port = ((Long) params.get("port")).shortValue();
       }
-      ///TODO: create info.nxtaddr
 
       System.out.println("Parent PID is " + info.ppid);
 
@@ -146,27 +145,44 @@ public class Framework
       logger.println("connected to " + info.connectaddr);
       logger.println("listen on " + info.bindaddr);
 
-      agent.register(info, params);
+      Long disabledMethods = agent.register(info, params);
       agent.processRegister(info, params);
       
       JSONObject registerJson = new JSONObject();
       
       JSONArray methodsJson = new JSONArray();
+      int i = 0;
       for(String a : agent.getMethods())
       {
-        methodsJson.add(a);
+        if(((1L << i) & disabledMethods) == 0)
+        {
+          methodsJson.add(a);
+        }
+        i++;
       }
       registerJson.put("methods", methodsJson);
+      
       JSONArray pubmethodsJson = new JSONArray();
+      i = 0;
       for(String a : agent.getPubmethods())
       {
-        pubmethodsJson.add(a);
+        if(((1L << i) & disabledMethods) == 0)
+        {
+          pubmethodsJson.add(a);
+        }
+        i++;
       }
       registerJson.put("pubmethods", pubmethodsJson);
+      
       JSONArray authmethodsJson = new JSONArray();
+      i = 0;
       for(String a : agent.getAuthmethods())
       {
-        authmethodsJson.add(a);
+        if(((1L << i) & disabledMethods) == 0)
+        {
+          authmethodsJson.add(a);
+        }
+        i++;
       }
       registerJson.put("authmethods", authmethodsJson);
       registerJson.put("pluginrequest", "SuperNET");
@@ -190,7 +206,6 @@ public class Framework
       while(true)
       {
         String message = null;
-        ///TODO: will it timeout on died socket?
         try
         {
           message = agentsock.recvString(false);
@@ -238,10 +253,17 @@ public class Framework
             if(itemsArray != null)
             {
               request = (JSONObject) itemsArray.get(0);
-              ///TODO: some validate code...
-              //timestamp = (uint32_t)get_API_int(cJSON_GetObjectItem(obj,"time"),0);
-              //sender[0] = 0;
-              //valid = validate_token(forwarder,pubkey,sender,jsonstr,(timestamp != 0)*MAXTIMEDIFF);
+              
+              if(itemsArray.size() > 1)
+              {
+                //token unused now - debug only
+                JSONObject tokenObject = (JSONObject) itemsArray.get(1);
+                String forwarder = Convert.emptyToNull((String) tokenObject.get("forwarder"));
+                String sender = Convert.emptyToNull((String) tokenObject.get("sender"));
+                Long valid = (Long) tokenObject.get("valid");
+                
+                logger.println("token: forwarder = " + forwarder + ", sender = " + sender + ", valid = " + valid);
+              }
             }
             else
             {
@@ -259,6 +281,23 @@ public class Framework
             }
             
             String tag = Convert.emptyToNull((String)request.get("tag"));
+            String name = Convert.emptyToNull((String)request.get("plugin"));
+            if(name == null)
+            {
+              name = Convert.emptyToNull((String)request.get("agent"));
+            }
+            
+            String destname = Convert.emptyToNull((String)request.get("destplugin"));
+            if(destname == null)
+            {
+              destname = Convert.emptyToNull((String)request.get("destagent"));
+            }
+            
+            //check request is ours
+            if((name == null || !info.name.equals(name)) && (destname == null || !info.name.equals(destname)))
+            {
+              continue;
+            }
             
             answer = agent.process(info, request);
             if(answer == null)

@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+- make doc
+=======
 - try to call a method of the agent
 - make doc
 - make a generic java library
+>>>>>>> 0224b93727c00d5584bce98f1877a8eb4137c04f
