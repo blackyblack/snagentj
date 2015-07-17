@@ -6,7 +6,7 @@ bin/
 classes/
 *.lib
 *.exp
-!lib/**/*.so
-!lib/**/*.dll
+lib/**
+!lib/**/info
 classes/*
 bin/*
