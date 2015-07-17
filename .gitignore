@@ -8,3 +8,5 @@ classes/
 *.lib
 *.exp
 *.dll
+classes/*
+bin*
