@@ -364,6 +364,7 @@ public class Framework
   
   public static void main(String[] args)
   {
+    System.out.println("Using empty agent implementation. Make sure to call valid entry function.");
     logger = System.out;
     agent = new AgentInterface();
     mainLoop(args);

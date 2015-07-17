@@ -78,8 +78,8 @@ public class Application
   
   public static void main(String[] args)
   {
-    System.out.println("Hello from echodemo");
-    System.out.println("The numbers are " + Arrays.toString(args));
+    System.out.println("echodemo agent starting");
+    System.out.println("Args are: " + Arrays.toString(args));
     
     Echodemo a = new Echodemo();
     snagentj.Framework.init(a, args, System.out);

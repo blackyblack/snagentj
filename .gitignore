@@ -4,9 +4,9 @@
 bin/
 *.pair
 classes/
-*.so
-*.lib
-*.exp
-*.dll
+lib/*.so
+lib/*.lib
+lib/*.exp
+lib/*.dll
 classes/*
-bin*
+bin/*
