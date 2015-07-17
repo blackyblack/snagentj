@@ -1,0 +1,1 @@
+java -cp %~dp0classes;%~dp0lib;%~dp0lib\*;%~dp0lib\win32-x86\nanomsg.dll;%~dp0lib\win32-x86\procutils.dll snagentj.echodemo.Application %*

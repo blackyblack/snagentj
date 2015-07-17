@@ -364,6 +364,8 @@ public class Framework
   
   public static void main(String[] args)
   {
+    logger = System.out;
+    agent = new AgentInterface();
     mainLoop(args);
   }
 }

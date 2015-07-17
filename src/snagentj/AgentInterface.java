@@ -2,7 +2,7 @@ package snagentj;
 
 import org.json.simple.JSONObject;
 
-public abstract class AgentInterface
+public class AgentInterface
 {
   //name of the agent. Must be equal to executable name.
   private String name = "";
