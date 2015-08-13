@@ -20,7 +20,7 @@ Linux:
 
 Windows:
 
-- Make sure cmake and Visual Strudio is installed on the system
+- Make sure cmake and Visual Studio is installed on the system
 - Add path to Visual Studio cl.exe eg D:\Microsoft Visual Studio 11.0\VC\bin\ to system PATH variable
 - Run compile_native_win32.bat
 - Build nanomsg:
