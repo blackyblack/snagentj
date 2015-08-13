@@ -37,6 +37,12 @@ public class Application
       String errorStr = Convert.emptyToNull((String)data.get("error"));
       String resultStr = Convert.emptyToNull((String)data.get("result"));
       
+      if (resultStr != null && resultStr.equals("registered"))
+      {
+        info.registered = true;
+        answer.put("result", "activated");
+        return answer;
+      }
       if (errorStr != null || resultStr != null)
       {
         answer.put("result", "completed");
@@ -44,7 +50,6 @@ public class Application
       }
       
       String method = Convert.emptyToNull((String)data.get("method"));
-      String methodResult = Convert.emptyToNull((String)data.get("result"));
       //plugin specific
       String echoStr = Convert.emptyToNull((String)data.get("echostr"));
       
@@ -54,13 +59,7 @@ public class Application
         return null;
       }
       
-      if (methodResult != null && methodResult.equals("registered"))
-      {
-        info.registered = true;
-        answer.put("result", "activated");
-        return answer;
-      }
-      else if (method.equals("echo"))
+      if (method.equals("echo"))
       {
         answer.put("result", echoStr);
         return answer;
