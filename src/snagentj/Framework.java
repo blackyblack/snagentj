@@ -104,7 +104,7 @@ public class Framework
 
       System.out.println("Parent PID is " + info.ppid);
 
-      info.connectaddr = "ipc://SuperNET";
+      info.connectaddr = "ipc://SuperNET.agents";
       info.bindaddr = "ipc://" + info.daemonid;
       /*if(info.permanentflag)
       {
